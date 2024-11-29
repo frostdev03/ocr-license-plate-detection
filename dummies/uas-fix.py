@@ -25,6 +25,10 @@ camera_mode = True  # Mode default adalah kamera langsung
 # EasyOCR Reader instance
 reader = easyocr.Reader(['en', 'id'])
 
+# Label untuk total confidence
+confidence_label = ttk.Label(root, text="Total Confidence: N/A", font=("Helvetica", 12), anchor="e", foreground="white")
+confidence_label.grid(row=0, column=2, padx=10, pady=5, sticky="e")
+
 # Citra
 original_image = None
 processed_image = None
@@ -54,37 +58,44 @@ def show_camera():
 
 # Fungsi untuk mengganti mode antara kamera langsung dan citra statis
 def toggle_camera():
-    global camera_mode
+    global camera_mode, processed_image
     camera_mode = not camera_mode
     if camera_mode:
         show_camera()
     else:
-        display_image(processed_image)
+        # Ambil frame terakhir untuk pengolahan
+        ret, frame = cap.read()
+        if ret:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            processed_image = Image.fromarray(frame)
+            display_image(processed_image)
 
 # Fungsi pemrosesan citra menggunakan slider
 def update_processing():
     global original_image, processed_image
     if original_image:
+        # Convert ke grayscale
         cv_image = cv2.cvtColor(np.array(original_image), cv2.COLOR_RGB2GRAY)
 
-        # Threshold
-        _, binary_image = cv2.threshold(cv_image, int(threshold_slider.get()), 255, cv2.THRESH_BINARY)
-        
-        # Noise removal (Median Blur)
+        # Adaptive Threshold
+        binary_image = cv2.adaptiveThreshold(cv_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                             cv2.THRESH_BINARY, 11, 2)
+
+        # Noise removal
         ksize = int(noise_slider.get())
         if ksize % 2 == 0:
             ksize += 1
         noise_removed = cv2.medianBlur(binary_image, ksize)
-        
-        # Dilation and Erosion
+
+        # Dilation dan Erosion
         kernel_size = int(dilation_slider.get())
         kernel = np.ones((kernel_size, kernel_size), np.uint8)
         dilated = cv2.dilate(noise_removed, kernel, iterations=1)
-        
+
         kernel_size_erosion = int(erosion_slider.get())
         kernel_erosion = np.ones((kernel_size_erosion, kernel_size_erosion), np.uint8)
         eroded = cv2.erode(dilated, kernel_erosion, iterations=1)
-        
+
         processed_image = Image.fromarray(eroded)
         display_image(processed_image)
 
@@ -95,19 +106,28 @@ def apply_ocr():
         processed_array = np.array(processed_image.convert('RGB'))
         results = reader.readtext(processed_array)
         draw = ImageDraw.Draw(processed_image)
+
+        total_confidence = 0
         for (bbox, text, confidence) in results:
             (top_left, top_right, bottom_right, bottom_left) = bbox
             top_left = tuple(map(int, top_left))
             bottom_right = tuple(map(int, bottom_right))
+
+            # Tambahkan confidence ke total
+            total_confidence += confidence
+
+            # Gambar kotak dan teks
             draw.rectangle([top_left, bottom_right], outline="red", width=3)
             draw.text(top_left, f"{text} ({confidence:.2f})", fill="red", font=font)
+
+        # Tampilkan total confidence
+        confidence_label.config(text=f"Total Confidence: {total_confidence:.2f}")
         display_image(processed_image)
 
 # Reset gambar ke aslinya
 def reset_image():
     global processed_image
-    if original_image:
-        processed_image = original_image.copy()
+    if processed_image:
         display_image(processed_image)
 
 # Elemen GUI
@@ -136,11 +156,6 @@ slider_frame.grid(row=1, column=2, padx=10, pady=10, sticky="nsew")
 slider_frame.columnconfigure(0, weight=1)
 
 # Slider untuk parameter
-ttk.Label(slider_frame, text="Threshold (0-255):").grid(pady=5, sticky="w")
-threshold_slider = ttk.Scale(slider_frame, from_=0, to=255, orient=HORIZONTAL, command=lambda e: update_processing())
-threshold_slider.set(127)
-threshold_slider.grid(pady=5, sticky="ew")
-
 ttk.Label(slider_frame, text="Noise Removal (Blur Kernel):").grid(pady=5, sticky="w")
 noise_slider = ttk.Scale(slider_frame, from_=1, to=15, orient=HORIZONTAL, command=lambda e: update_processing())
 noise_slider.set(3)

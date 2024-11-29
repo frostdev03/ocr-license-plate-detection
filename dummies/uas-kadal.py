@@ -6,6 +6,8 @@ import numpy as np
 import easyocr
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
+import datetime
+import re
 
 # Dark mode window
 root = ttk.Window(themename="darkly")
@@ -14,29 +16,50 @@ root.title("Image Processing and OCR with Camera")
 root.columnconfigure(1, weight=1)
 root.rowconfigure(1, weight=1)
 
+# Maximize the window
+root.wm_state('zoomed')
+
 font_path = "arial.ttf"
 font_size = 20
 font = ImageFont.truetype(font_path, font_size)
 
-# Kamera
+# Camera
 cap = cv2.VideoCapture(0)
-camera_mode = True  # Mode default adalah kamera langsung
+camera_mode = True  # Default mode is live camera
 
 # EasyOCR Reader instance
 reader = easyocr.Reader(['en'])
 
-# Citra
+# Images
 original_image = None
 processed_image = None
 
-# Fungsi untuk menampilkan gambar
+# Function to display image
+# def display_image(image):
+#     image.thumbnail((image_frame.winfo_width(), image_frame.winfo_height()))
+#     tk_image = ImageTk.PhotoImage(image)
+#     image_label.config(image=tk_image)
+#     image_label.image = tk_image
+
 def display_image(image):
-    image.thumbnail((image_frame.winfo_width(), image_frame.winfo_height()))
     tk_image = ImageTk.PhotoImage(image)
     image_label.config(image=tk_image)
     image_label.image = tk_image
 
-# Fungsi untuk menangkap dan menampilkan frame dari kamera
+# Function to capture and display camera frame
+# def show_camera():
+#     global processed_image
+#     if not camera_mode:
+#         return
+
+#     ret, frame = cap.read()
+#     if ret:
+#         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#         processed_image = Image.fromarray(frame)
+#         display_image(processed_image)
+    
+#     root.after(10, show_camera)
+
 def show_camera():
     global processed_image
     if not camera_mode:
@@ -45,23 +68,49 @@ def show_camera():
     ret, frame = cap.read()
     if ret:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Get the current size of the image_frame
+        frame_width = image_frame.winfo_width()
+        frame_height = image_frame.winfo_height()
+        
+        # Resize the frame to fit the image_frame
+        frame = cv2.resize(frame, (frame_width, frame_height))
+        
         processed_image = Image.fromarray(frame)
         display_image(processed_image)
     
     root.after(10, show_camera)
 
-# Fungsi untuk menangkap gambar dari kamera
+# Function to capture image from camera
+# def capture_image():
+#     global original_image, processed_image, camera_mode
+#     ret, frame = cap.read()
+#     if ret:
+#         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#         original_image = Image.fromarray(frame)
+#         processed_image = original_image.copy()
+#         camera_mode = False
+#         display_image(processed_image)
+
 def capture_image():
     global original_image, processed_image, camera_mode
     ret, frame = cap.read()
     if ret:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Get the current size of the image_frame
+        frame_width = image_frame.winfo_width()
+        frame_height = image_frame.winfo_height()
+        
+        # Resize the captured frame to fit the image_frame
+        frame = cv2.resize(frame, (frame_width, frame_height))
+        
         original_image = Image.fromarray(frame)
         processed_image = original_image.copy()
         camera_mode = False
         display_image(processed_image)
 
-# Fungsi pemrosesan citra menggunakan slider
+# Function for image processing using sliders
 def update_processing():
     global original_image, processed_image
     if original_image:
@@ -84,7 +133,33 @@ def update_processing():
         processed_image = Image.fromarray(eroded)
         display_image(processed_image)
 
-# OCR menggunakan EasyOCR
+# OCR using EasyOCR
+# def apply_ocr():
+#     global processed_image
+#     if processed_image:
+#         processed_array = np.array(processed_image.convert('RGB'))
+#         results = reader.readtext(processed_array)
+#         draw = ImageDraw.Draw(processed_image)
+
+#         for (bbox, text, confidence) in results:
+#             (top_left, top_right, bottom_right, bottom_left) = bbox
+#             top_left = tuple(map(int, top_left))
+#             bottom_right = tuple(map(int, bottom_right))
+
+#             draw.rectangle([top_left, bottom_right], outline="red", width=3)
+#             draw.text(top_left, text, fill="red", font=font)
+        
+#         # Display last confidence in the bottom right corner
+#         if results:
+#             last_confidence = results[-1][2]
+#             draw.text(
+#                 (processed_image.width - 200, processed_image.height - 50),
+#                 f"Confidence: {last_confidence:.2f}",
+#                 fill="white",
+#                 font=font
+#             )
+#         display_image(processed_image)
+
 def apply_ocr():
     global processed_image
     if processed_image:
@@ -92,6 +167,7 @@ def apply_ocr():
         results = reader.readtext(processed_array)
         draw = ImageDraw.Draw(processed_image)
 
+        expiration_date = None
         for (bbox, text, confidence) in results:
             (top_left, top_right, bottom_right, bottom_left) = bbox
             top_left = tuple(map(int, top_left))
@@ -99,26 +175,38 @@ def apply_ocr():
 
             draw.rectangle([top_left, bottom_right], outline="red", width=3)
             draw.text(top_left, text, fill="red", font=font)
-        
-        # Tampilkan confidence terakhir di pojok kanan bawah
-        if results:
-            last_confidence = results[-1][2]
-            draw.text(
-                (processed_image.width - 200, processed_image.height - 50),
-                f"Confidence: {last_confidence:.2f}",
-                fill="white",
-                font=font
-            )
+
+            # Check if the text matches the expiration date format (XX.XX)
+            if re.match(r'\d{2}\\d{2}', text):
+                expiration_date = text
+
+        if expiration_date:
+            # Convert the expiration date string to a datetime object
+            exp_year, exp_month = map(int, expiration_date.split('.'))
+            exp_date = datetime.date(2000 + exp_year, exp_month, 1)
+
+            # Get the current date
+            today = datetime.date.today()
+
+            # Calculate the expiration status
+            if exp_date < today:
+                expiration_status = f"Expired {(today - exp_date).days} days ago"
+            else:
+                expiration_status = f"Valid for {(exp_date - today).days} more days"
+
+            # Display the expiration status
+            draw.text((processed_image.width - 200, processed_image.height - 100), expiration_status, fill="white", font=font)
+
         display_image(processed_image)
 
-# Reset gambar ke aslinya
+# Reset image to original
 def reset_image():
     global processed_image
     if original_image:
         processed_image = original_image.copy()
         display_image(processed_image)
 
-# Elemen GUI
+# GUI Elements
 title = ttk.Label(
     root,
     text="               PRAKTIK PENGOLAHAN CITRA DIGITAL\nDETEKSI KARAKTER PADA PLAT NOMOR KENDARAAN",
