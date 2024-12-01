@@ -1,63 +1,49 @@
-from tkinter import filedialog
 from tkinter import *
-from PIL import Image, ImageTk, ImageOps, ImageDraw, ImageFont
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 import cv2
 import numpy as np
 import easyocr
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
+import datetime
+import re
 
 # Dark mode window
 root = ttk.Window(themename="darkly")
 root.geometry("1000x600")
-root.title("Image Processing and OCR with Camera")
+root.title("Deteksi Karakter pada Plat Nomor Kendaraan")
 root.columnconfigure(1, weight=1)
 root.rowconfigure(1, weight=1)
 
 # Maximize the window
 root.wm_state('zoomed')
 
-font_path = "arial.ttf"
+# Fonts
+font_path = "C:/Windows/Fonts/arial.ttf"  # Ganti sesuai dengan sistem Anda
 font_size = 20
 font = ImageFont.truetype(font_path, font_size)
+
+fsize_bbox = 35
+fbbox = ImageFont.truetype(font_path, fsize_bbox)
 
 # Camera
 cap = cv2.VideoCapture(0)
 camera_mode = True  # Default mode is live camera
 
 # EasyOCR Reader instance
-reader = easyocr.Reader(['en'])
+reader = easyocr.Reader(['en','id'])
 
 # Images
 original_image = None
 processed_image = None
 
 # Function to display image
-# def display_image(image):
-#     image.thumbnail((image_frame.winfo_width(), image_frame.winfo_height()))
-#     tk_image = ImageTk.PhotoImage(image)
-#     image_label.config(image=tk_image)
-#     image_label.image = tk_image
-
 def display_image(image):
     tk_image = ImageTk.PhotoImage(image)
     image_label.config(image=tk_image)
     image_label.image = tk_image
 
 # Function to capture and display camera frame
-# def show_camera():
-#     global processed_image
-#     if not camera_mode:
-#         return
-
-#     ret, frame = cap.read()
-#     if ret:
-#         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-#         processed_image = Image.fromarray(frame)
-#         display_image(processed_image)
-    
-#     root.after(10, show_camera)
-
 def show_camera():
     global processed_image
     if not camera_mode:
@@ -66,43 +52,24 @@ def show_camera():
     ret, frame = cap.read()
     if ret:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Get the current size of the image_frame
         frame_width = image_frame.winfo_width()
         frame_height = image_frame.winfo_height()
-        
-        # Resize the frame to fit the image_frame
         frame = cv2.resize(frame, (frame_width, frame_height))
-        
         processed_image = Image.fromarray(frame)
         display_image(processed_image)
     
-    root.after(10, show_camera)
+    if camera_mode:
+        root.after(10, show_camera)
 
 # Function to capture image from camera
-# def capture_image():
-#     global original_image, processed_image, camera_mode
-#     ret, frame = cap.read()
-#     if ret:
-#         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-#         original_image = Image.fromarray(frame)
-#         processed_image = original_image.copy()
-#         camera_mode = False
-#         display_image(processed_image)
-
 def capture_image():
     global original_image, processed_image, camera_mode
     ret, frame = cap.read()
     if ret:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Get the current size of the image_frame
         frame_width = image_frame.winfo_width()
         frame_height = image_frame.winfo_height()
-        
-        # Resize the captured frame to fit the image_frame
         frame = cv2.resize(frame, (frame_width, frame_height))
-        
         original_image = Image.fromarray(frame)
         processed_image = original_image.copy()
         camera_mode = False
@@ -131,32 +98,81 @@ def update_processing():
         processed_image = Image.fromarray(eroded)
         display_image(processed_image)
 
-# OCR using EasyOCR
+# Improved OCR logic
 def apply_ocr():
     global processed_image
     if processed_image:
-        processed_array = np.array(processed_image.convert('RGB'))
+        # Convert to array and process OCR
+        processed_array = np.array(processed_image)
         results = reader.readtext(processed_array)
-        draw = ImageDraw.Draw(processed_image)
+        draw_image = Image.fromarray(processed_array).convert('RGB')
+        draw = ImageDraw.Draw(draw_image)
 
-        for (bbox, text, confidence) in results:
+        # Debugging: Print results to console
+        print("OCR Results:")
+        confidences = []  # To store all confidence values
+        expiration_date = None
+
+        for bbox, text, confidence in results:
+            print(f"Text: {text}, Confidence: {confidence}")
+            confidences.append(confidence)  # Append confidence to the list
+            
+            #bbox
             (top_left, top_right, bottom_right, bottom_left) = bbox
             top_left = tuple(map(int, top_left))
             bottom_right = tuple(map(int, bottom_right))
+            
+            draw.rectangle([top_left, bottom_right], outline="green", width=3)
+            draw.text(top_left, text, fill="green", font=fbbox)
 
-            draw.rectangle([top_left, bottom_right], outline="red", width=3)
-            draw.text(top_left, text, fill="red", font=font)
-        
-        # Display last confidence in the bottom right corner
-        if results:
-            last_confidence = results[-1][2]
-            draw.text(
-                (processed_image.width - 200, processed_image.height - 50),
-                f"Confidence: {last_confidence:.2f}",
-                fill="white",
-                font=font
-            )
+            # Clean text and look for date-like patterns
+            text_cleaned = text.replace(" ", "").replace(".", "").replace(",", "").replace("'", "")
+            match = re.match(r'(\d{2})(\d{2})$', text_cleaned)  # Match last 4 digits as MMYY
+            if match:
+                expiration_date = match.groups()
+
+        # Calculate average confidence
+        avg_confidence = sum(confidences) / len(confidences) if confidences else 0
+
+        # Display confidence on the image
+        confidence_text = f"Accuracy: {avg_confidence * 100:.2f}%"
+        draw.text(
+            (processed_image.width - 200, 10),  # Top-right corner
+            confidence_text,
+            fill="white",
+            font=ImageFont.truetype("arial.ttf", size=24)  # Larger font size
+        )
+
+        if expiration_date:
+            # Parse year and month from matched text
+            exp_month, exp_year_suffix = map(int, expiration_date)
+            exp_year = 2000 + exp_year_suffix  # Convert 2-digit year to 4-digit year
+            exp_date = datetime.date(exp_year, exp_month, 1)
+
+            # Get the current date
+            today = datetime.date.today()
+
+            # Calculate the expiration status
+            if exp_date < today:
+                expiration_status = f"Expired {(today - exp_date).days} days ago"
+            else:
+                expiration_status = f"Valid for {(exp_date - today).days} more days"
+
+            # Print expiration status to console
+            print(f"Expiration Status: {expiration_status}")
+
+            # Display the expiration date and status on the image
+            draw.text((20, processed_image.height - 70), f"Exp Date: {exp_month:02}/{exp_year}", fill="white", font=font)
+            draw.text((20, processed_image.height - 50), expiration_status, fill="white", font=font)
+        else:
+            # If no valid date was detected
+            print("No valid expiration date detected.")
+            draw.text((20, processed_image.height - 70), "No valid expiration date detected.", fill="white", font=font)
+
+        # Update the GUI with processed image
+        processed_image = draw_image
         display_image(processed_image)
+
 
 # Reset image to original
 def reset_image():
@@ -212,5 +228,6 @@ ttk.Button(slider_frame, text="Capture", command=capture_image, width=15).grid(p
 ttk.Button(slider_frame, text="Identify", command=apply_ocr, width=15).grid(pady=5)
 ttk.Button(slider_frame, text="Reset", command=reset_image, width=15).grid(pady=5)
 
+# Start camera feed
 show_camera()
 root.mainloop()

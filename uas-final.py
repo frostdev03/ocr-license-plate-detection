@@ -1,6 +1,5 @@
-from tkinter import filedialog
 from tkinter import *
-from PIL import Image, ImageTk, ImageOps, ImageDraw, ImageFont
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 import cv2
 import numpy as np
 import easyocr
@@ -12,33 +11,46 @@ import re
 # Dark mode window
 root = ttk.Window(themename="darkly")
 root.geometry("1000x600")
-root.title("Image Processing and OCR with Camera")
+root.title("Deteksi Karakter pada Plat Nomor Kendaraan")
 root.columnconfigure(1, weight=1)
 root.rowconfigure(1, weight=1)
 
 # Maximize the window
 root.wm_state('zoomed')
 
-font_path = "arial.ttf"
+# Fonts
+font_path = "C:/Windows/Fonts/arial.ttf"  # Ganti sesuai dengan sistem Anda
 font_size = 20
 font = ImageFont.truetype(font_path, font_size)
+
+fsize_bbox = 35
+fbbox = ImageFont.truetype(font_path, fsize_bbox)
 
 # Camera
 cap = cv2.VideoCapture(0)
 camera_mode = True  # Default mode is live camera
 
 # EasyOCR Reader instance
-reader = easyocr.Reader(['en'])
+reader = easyocr.Reader(['en','id'])
 
 # Images
 original_image = None
 processed_image = None
 
+# Function to display image
 def display_image(image):
-    tk_image = ImageTk.PhotoImage(image)
+    # Resize image to fit image_frame
+    frame_width = image_frame.winfo_width()
+    frame_height = image_frame.winfo_height()
+    # resized_image = image.resize((frame_width, frame_height), Image.ANTIALIAS)
+    resized_image = image.resize((frame_width, frame_height), Image.Resampling.LANCZOS)
+    
+    tk_image = ImageTk.PhotoImage(resized_image)
     image_label.config(image=tk_image)
     image_label.image = tk_image
 
+
+# Function to capture and display camera frame
 def show_camera():
     global processed_image
     if not camera_mode:
@@ -47,32 +59,24 @@ def show_camera():
     ret, frame = cap.read()
     if ret:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Get the current size of the image_frame
         frame_width = image_frame.winfo_width()
         frame_height = image_frame.winfo_height()
-        
-        # Resize the frame to fit the image_frame
         frame = cv2.resize(frame, (frame_width, frame_height))
-        
         processed_image = Image.fromarray(frame)
         display_image(processed_image)
     
-    root.after(10, show_camera)
+    if camera_mode:
+        root.after(10, show_camera)
 
+# Function to capture image from camera
 def capture_image():
     global original_image, processed_image, camera_mode
     ret, frame = cap.read()
     if ret:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Get the current size of the image_frame
         frame_width = image_frame.winfo_width()
         frame_height = image_frame.winfo_height()
-        
-        # Resize the captured frame to fit the image_frame
         frame = cv2.resize(frame, (frame_width, frame_height))
-        
         original_image = Image.fromarray(frame)
         processed_image = original_image.copy()
         camera_mode = False
@@ -101,30 +105,56 @@ def update_processing():
         processed_image = Image.fromarray(eroded)
         display_image(processed_image)
 
+# Improved OCR logic
 def apply_ocr():
     global processed_image
     if processed_image:
-        processed_array = np.array(processed_image.convert('RGB'))
+        # Convert to array and process OCR
+        processed_array = np.array(processed_image)
         results = reader.readtext(processed_array)
-        draw = ImageDraw.Draw(processed_image)
+        draw_image = Image.fromarray(processed_array).convert('RGB')
+        draw = ImageDraw.Draw(draw_image)
 
+        # Debugging: Print results to console
+        print("OCR Results:")
+        confidences = []  # To store all confidence values
         expiration_date = None
-        for (bbox, text, confidence) in results:
+
+        for bbox, text, confidence in results:
+            print(f"Text: {text}, Confidence: {confidence}")
+            confidences.append(confidence)  # Append confidence to the list
+            
+            #bbox
             (top_left, top_right, bottom_right, bottom_left) = bbox
             top_left = tuple(map(int, top_left))
             bottom_right = tuple(map(int, bottom_right))
+            
+            draw.rectangle([top_left, bottom_right], outline="green", width=3)
+            draw.text(top_left, text, fill="green", font=fbbox)
 
-            draw.rectangle([top_left, bottom_right], outline="red", width=3)
-            draw.text(top_left, text, fill="red", font=font)
+            # Clean text and look for date-like patterns
+            text_cleaned = text.replace(" ", "").replace(".", "").replace(",", "").replace("'", "")
+            match = re.match(r'(\d{2})(\d{2})$', text_cleaned)  # Match last 4 digits as MMYY
+            if match:
+                expiration_date = match.groups()
 
-            # Check if the text matches the expiration date format (XX.XX)
-            if re.match(r'\d{2}\\d{2}', text):
-                expiration_date = text
+        # Calculate average confidence
+        avg_confidence = sum(confidences) / len(confidences) if confidences else 0
+
+        # Display confidence on the image
+        confidence_text = f"Accuracy: {avg_confidence * 100:.2f}%"
+        draw.text(
+            (processed_image.width - 200, 10),  # Top-right corner
+            confidence_text,
+            fill="green",
+            font=ImageFont.truetype("arial.ttf", size=25)  # Larger font size
+        )
 
         if expiration_date:
-            # Convert the expiration date string to a datetime object
-            exp_year, exp_month = map(int, expiration_date.split('.'))
-            exp_date = datetime.date(2000 + exp_year, exp_month, 1)
+            # Parse year and month from matched text
+            exp_month, exp_year_suffix = map(int, expiration_date)
+            exp_year = 2000 + exp_year_suffix  # Convert 2-digit year to 4-digit year
+            exp_date = datetime.date(exp_year, exp_month, 1)
 
             # Get the current date
             today = datetime.date.today()
@@ -135,17 +165,50 @@ def apply_ocr():
             else:
                 expiration_status = f"Valid for {(exp_date - today).days} more days"
 
-            # Display the expiration status
-            draw.text((processed_image.width - 200, processed_image.height - 100), expiration_status, fill="white", font=font)
+            # Print expiration status to console
+            print(f"Expiration Status: {expiration_status}")
 
+            # Display the expiration date and status on the image
+            draw.text((20, processed_image.height - 100), f"Exp Date: {exp_month:02}/{exp_year}", fill="green", font=fbbox)
+            draw.text((20, processed_image.height - 70), expiration_status, fill="green", font=fbbox)
+        else:
+            # If no valid date was detected
+            print("No valid expiration date detected.")
+            draw.text((20, processed_image.height - 90), "No valid expiration date detected.", fill="green", font=fbbox)
+
+        # Update the GUI with processed image
+        processed_image = draw_image
         display_image(processed_image)
+
+# Reset all sliders to 0
+def reset_sliders():
+    threshold_slider.set(0)
+    noise_slider.set(1)
+    dilation_slider.set(1)
+    erosion_slider.set(1)
 
 # Reset image to original
 def reset_image():
-    global processed_image
+    global processed_image, camera_mode
+    reset_sliders()  # Reset all sliders to 0
     if original_image:
+        # Reset to the captured image
         processed_image = original_image.copy()
         display_image(processed_image)
+        print("Reset to captured image")
+    else:
+        # Return to live camera mode
+        camera_mode = True
+        print("Reset to live camera")
+        show_camera()
+
+def live_camera_mode():
+    """Reset everything and return to live camera mode."""
+    global camera_mode, processed_image
+    reset_sliders()  # Reset sliders
+    camera_mode = True  # Reactivate live camera mode
+    processed_image = None  # Clear the processed image
+    show_camera()  # Start showing live camera feed
 
 # GUI Elements
 title = ttk.Label(
@@ -158,16 +221,19 @@ title = ttk.Label(
 )
 title.grid(row=0, column=0, columnspan=3, pady=10, sticky="ew")
 
-image_frame = ttk.LabelFrame(root, text="Image Display", style="primary.TLabelframe")
-image_frame.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+image_frame = ttk.LabelFrame(root, text="Image Display", style="primary.TLabelframe", width=600, height=400)
+image_frame.grid(row=1, column=1, padx=20, pady=20, sticky="nsew")
 image_frame.rowconfigure(0, weight=1)
 image_frame.columnconfigure(0, weight=1)
+
+root.update_idletasks()  # Pastikan ukuran diatur sebelum gambar pertama ditampilkan
+# image_frame.config(width=400, height=400)  # Sesuaikan dengan ukuran frame yang Anda tentukan
 
 image_label = ttk.Label(image_frame)
 image_label.grid(sticky="nsew")
 
 slider_frame = ttk.Frame(root)
-slider_frame.grid(row=1, column=2, padx=5, pady=5, sticky="nsew")
+slider_frame.grid(row=1, column=2, padx=35, pady=5, sticky="nsew")
 slider_frame.columnconfigure(0, weight=1)
 
 ttk.Label(slider_frame, text="Threshold (0-255):").grid(pady=5, sticky="w")
@@ -190,9 +256,17 @@ erosion_slider = ttk.Scale(slider_frame, from_=1, to=10, orient=HORIZONTAL, comm
 erosion_slider.set(3)
 erosion_slider.grid(pady=5, sticky="ew")
 
-ttk.Button(slider_frame, text="Capture", command=capture_image, width=15).grid(pady=10)
-ttk.Button(slider_frame, text="Identify", command=apply_ocr, width=15).grid(pady=5)
-ttk.Button(slider_frame, text="Reset", command=reset_image, width=15).grid(pady=5)
+ttk.Button(slider_frame, text="Capture", command=capture_image, width=20).grid(pady=10)
+ttk.Button(slider_frame, text="Identify", command=apply_ocr, width=20).grid(pady=10)
+ttk.Button(slider_frame, text="Reset Processing", command=reset_image, width=20).grid(pady=10)
+ttk.Button(slider_frame, text="Reset Camera", command=live_camera_mode, width=20).grid(pady=10)
 
+# Start sliders at 0 when the program is run
+threshold_slider.set(0)
+noise_slider.set(1)
+dilation_slider.set(1)
+erosion_slider.set(1)
+
+# Start camera feed
 show_camera()
 root.mainloop()
