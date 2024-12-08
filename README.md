@@ -1,5 +1,5 @@
 # License Plate Detection and OCR Application
-
+![WhatsApp Image 2024-12-08 at 2 50 46 PM](https://github.com/user-attachments/assets/c30a0f7c-346f-4b65-970f-461dddeb6bdf)
 This repository contains a Python-based GUI application for detecting characters on license plates using **image processing** and **Optical Character Recognition (OCR)**. The application is built using **Tkinter** for the interface, **OpenCV** for image processing, and **EasyOCR** for text recognition.
 
 ## Features
