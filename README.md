@@ -71,5 +71,5 @@ pip install ttkbootstrap pillow opencv-python-headless numpy easyocr
 - [EasyOCR](https://github.com/JaidedAI/EasyOCR) for text recognition.
 - [ttkbootstrap](https://ttkbootstrap.readthedocs.io/en/latest/) for the stylish user interface.
 - [OpenCV](https://opencv.org/) for image processing.
-```
+
 Cheers
