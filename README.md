@@ -36,7 +36,7 @@ pip install ttkbootstrap pillow opencv-python-headless numpy easyocr
 
 1. **Run the Application**:
    ```bash
-   python <license-detection-easy-ocr>.py
+   python license-detection-easy-ocr.py
    ```
 
 2. **Application Interface**:
