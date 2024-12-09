@@ -1,63 +1,76 @@
-# License Plate Detection and OCR Application
-![WhatsApp Image 2024-12-08 at 2 50 46 PM](https://github.com/user-attachments/assets/c30a0f7c-346f-4b65-970f-461dddeb6bdf)
-This repository contains a Python-based GUI application for detecting characters on license plates using **image processing** and **Optical Character Recognition (OCR)**. The application is built using **Tkinter** for the interface, **OpenCV** for image processing, and **EasyOCR** for text recognition.
+# Vehicle License Plate Character Detection
+
+This is a Python-based application for detecting characters on vehicle license plates using **Tkinter**, **OpenCV**, **EasyOCR**, and **ttkbootstrap**. The application enables real-time processing of camera feeds or static images and displays recognized characters with confidence levels.
+
+---
 
 ## Features
-- **User-friendly GUI**: Built with Tkinter and TTKBootstrap for an enhanced dark-mode interface.
-- **Image Processing Tools**:
-  - Grayscale conversion
-  - Threshold adjustment
-  - Noise removal using median blur
-  - Dilation and erosion
-- **OCR Functionality**:
-  - Recognize text on images of license plates
-  - Display bounding boxes and detected text directly on the image
-- **Interactive Controls**:
-  - Zoom in and out
-  - Real-time image adjustments with sliders
-- **File Handling**:
-  - Open images using a file dialog
-  - Reset to original image after processing
 
-## Technologies Used
-- **Tkinter**: For creating the graphical user interface.
-- **OpenCV**: For image processing operations such as grayscale conversion, thresholding, noise removal, and morphological transformations.
-- **EasyOCR**: For Optical Character Recognition, supporting multiple languages.
-- **Pillow**: For advanced image handling and display in the GUI.
+- **Real-Time Camera Feed**: Display live video feed from the camera.
+- **Character Recognition**: Detect and identify text on license plates using EasyOCR.
+- **Image Processing**: Apply thresholding, noise removal, dilation, and erosion to enhance image quality.
+- **Confidence Display**: Shows OCR accuracy and overlays the recognized text on the image.
+- **Reset Options**: Reset sliders or return to live camera mode for quick adjustments.
 
-## How to Use
-1. **Install Required Libraries**:
+---
+
+## Prerequisites
+
+- Python 3.8 or later
+- Required libraries:
+  - `ttkbootstrap`
+  - `Pillow`
+  - `OpenCV` (`cv2`)
+  - `numpy`
+  - `EasyOCR`
+
+Install the dependencies via pip:
+
+```bash
+pip install ttkbootstrap pillow opencv-python-headless numpy easyocr
+```
+
+---
+
+## Usage
+
+1. **Run the Application**:
    ```bash
-   pip install opencv-python-headless easyocr pillow ttkbootstrap
+   python license-detection-easy-ocr.py
    ```
 
-2. **Run the Application**:
-   ```bash
-   python main.py (not final yet hehe)
-   ```
+2. **Application Interface**:
+   - **Live Camera Feed**: The application starts in camera mode, displaying the live feed.
+   - **Capture Image**: Click the **Capture** button to freeze the current camera frame.
+   - **Image Processing**: Use sliders to adjust thresholding, noise removal, dilation, and erosion to enhance the image.
+   - **OCR**: Click the **Identify** button to detect characters on the processed image.
+   - **Reset**: Reset the image or return to live camera mode as needed.
 
-3. **Usage**:
-   - Click **"Get Image"** to select an image file.
-   - Adjust the sliders for thresholding, noise removal, dilation, and erosion.
-   - Click **"Identify"** to perform OCR and detect text.
-   - Use **"Zoom In"** and **"Zoom Out"** for resizing the displayed image.
-   - Click **"Reset"** to return to the original image.
+3. **OCR Results**:
+   - The recognized text is displayed on the image along with its confidence level.
+   - If date patterns are detected, the expiration status is calculated and displayed.
 
-## Interface Overview
-- **Image Display**: Shows the loaded and processed images with bounding boxes for detected text.
-- **Sliders**: Control parameters for image processing:
-  - Thresholding (0-255)
-  - Noise Removal (Kernel size for blur)
-  - Dilation and Erosion (Kernel sizes for morphological transformations)
-- **Buttons**:
-  - `Get Image`: Open an image for processing.
-  - `Identify`: Perform OCR and show detected text.
-  - `Reset`: Revert to the original image.
-  - `Zoom In` and `Zoom Out`: Adjust the image size.
+---
 
-## Future Enhancements
-- Add support for video input (e.g., real-time OCR from a camera feed).
-- Include more advanced image pre-processing techniques.
-- Support additional OCR languages and fine-tune recognition accuracy.
 
+## Screenshots
+
+![WhatsApp Image 2024-12-08 at 2 50 46 PM](https://github.com/user-attachments/assets/c30a0f7c-346f-4b65-970f-461dddeb6bdf)
+
+---
+
+## Troubleshooting
+
+- **Camera Issues**: Ensure your device camera is functional and accessible.
+- **Text Detection Errors**: Adjust sliders to improve text visibility for OCR.
+- **Font Path Error**: Update the `font_path` variable in the script to match your system.
+
+---
+
+## Acknowledgments
+
+- [EasyOCR](https://github.com/JaidedAI/EasyOCR) for text recognition.
+- [ttkbootstrap](https://ttkbootstrap.readthedocs.io/en/latest/) for the stylish user interface.
+- [OpenCV](https://opencv.org/) for image processing.
+```
 Cheers
