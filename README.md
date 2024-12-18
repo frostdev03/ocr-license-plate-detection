@@ -63,7 +63,6 @@ pip install ttkbootstrap pillow opencv-python-headless numpy easyocr
 
 - **Camera Issues**: Ensure your device camera is functional and accessible.
 - **Text Detection Errors**: Adjust sliders to improve text visibility for OCR.
-- **Font Path Error**: Update the `font_path` variable in the script to match your system.
 
 ---
 
@@ -72,5 +71,5 @@ pip install ttkbootstrap pillow opencv-python-headless numpy easyocr
 - [EasyOCR](https://github.com/JaidedAI/EasyOCR) for text recognition.
 - [ttkbootstrap](https://ttkbootstrap.readthedocs.io/en/latest/) for the stylish user interface.
 - [OpenCV](https://opencv.org/) for image processing.
-```
+
 Cheers
